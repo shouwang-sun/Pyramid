@@ -6,17 +6,14 @@ r"""module doc
 import numpy as np
 from scipy import stats
 from scipy.stats import rv_continuous
-from traits.api import HasTraits, Instance, Str
-from traits.trait_types import List, Button
-from traitsui.api import View, Item, Group
-from traitsui.editors import EnumEditor
-from traitsui.group import VGroup, HGroup
-from traitsui.handler import Controller
-from traitsui.item import spring, Label
-from traitsui.menu import Action
+from traits.api import \
+    HasTraits, Str, Instance, List, Button
+from traitsui.api import \
+    View, Item, UItem, UReadonly, Group, VGroup, \
+    HGroup, spring, Action, Controller, EnumEditor
 
-from workspace import FITS
-from workspace import DATA
+from main.workspace import FITS
+from main.workspace import DATA
 
 
 class FitController(Controller):
@@ -47,15 +44,16 @@ class FitController(Controller):
         shapes["loc"] = params[-2]
         shapes["scale"] = params[-1]
 
+        self.fit_result = '\n'.join(['{} = {}'.format(k, v) for k, v in shapes.items()])
         self.info.object.fit = self.info.object.distribution(**shapes)
 
     def export_fit(self, info):
-        fit_name = self.model.name
+        fit_name = info.object.name
         fit = info.object.fit
         FITS[fit_name] = fit
 
-        self.model.target.current_fit_name = info.object.name
-        info.ui.control.Close()
+        info.object.target.current_fit_name = fit_name
+        info.ui.control.close()
 
 
 class Fit(HasTraits):
@@ -73,6 +71,7 @@ class Fit(HasTraits):
     shapes = List(Str)
 
     def __init__(self, target):
+        super(Fit, self).__init__()
         self.target = target
 
     # - Event Handlers ---------------------------------------------------------
@@ -86,11 +85,12 @@ class Fit(HasTraits):
     traits_view = View(
         VGroup(
             Group(
-                Item("name", label=u"拟合名称"),
+                Item("name", label=u"拟合名称", width=200),
                 Item(
                     "handler.selected_data_name",
                     editor=EnumEditor(name="handler.candidate_data_names"),
                     label=u"拟合数据",
+                    width=200,
                 ),
                 Item(
                     "distribution",
@@ -98,23 +98,22 @@ class Fit(HasTraits):
                         values={v: k for (k, v) in stats.__dict__.items() if isinstance(v, stats.rv_continuous)}
                     ),
                     label=u"拟合函数",
+                    width=200,
                 ),
             ),
             Group(
-                Item("shapes", style="readonly", show_label=False),
-                label=u"拟合函数参数表",
-                show_border=True,
+                UReadonly("shapes"), label=u"拟合函数参数表", show_border=True,
             ),
             HGroup(
-                spring, Item("handler.apply_fit_button", show_label=False),
+                spring, UItem("handler.apply_fit_button"),
             ),
             Group(
-                Label(u"拟合结果"),
-                Item("handler.fit_result", style="custom", show_label=False),
+                UItem("handler.fit_result", style="custom"), label=u"拟合结果",
             ),
         ),
         handler=FitController,
         buttons=[FitController.export_fit_button],
+        title=u"数据拟合窗口",
         height=700,
         width=400,
         resizable=True,
